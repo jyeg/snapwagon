@@ -4,7 +4,7 @@ machine:
   python:
     version: 3.6.1
   environment:
-    DJANGO_SETTINGS_MODULE: settings.local
+    DJANGO_SETTINGS_MODULE: settings.circleci
     BRAINTREE_MERCHANT_ID: 'dn239hzvx7n3ndjb'
     BRAINTREE_PUBLIC_KEY: '5vqqv4jf9cjb3smd'
     BRAINTREE_PRIVATE_KEY: '700c81a16ac855916bf86eeede3d95d1'
