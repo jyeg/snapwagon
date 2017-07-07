@@ -1,0 +1,9 @@
+braintree==3.37.2
+coupon-codes==0.1
+Django==1.11.3
+django-cors-headers==2.0.2
+django-grappelli==2.10.1
+django-localflavor==1.5
+djangorestframework==3.6.3
+factory_boy==2.8.1
+Pillow==4.1.1
