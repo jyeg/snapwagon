@@ -1,4 +1,4 @@
 -r base.txt
 
 gunicorn==19.7.1
-pexpect==4.2.1
+psycopg2==2.7.1
