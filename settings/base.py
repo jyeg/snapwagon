@@ -68,8 +68,12 @@ WSGI_APPLICATION = 'snapwagon.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.abspath(os.path.join(BASE_DIR, '../../database/db.sqlite3')),
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': os.getenv('DATABASE_NAME'),
+        'USER': os.getenv('DATABASE_USER'),
+        'PASSWORD': os.getenv('DATABASE_PASS'),
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
