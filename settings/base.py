@@ -25,6 +25,7 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     'corsheaders',
+    # 'django_rq',
     'localflavor',
     'rest_framework',
 ]
@@ -116,6 +117,18 @@ STATICFILES_DIRS = (
 
 CORS_ORIGIN_ALLOW_ALL = True
 
+# RQ_QUEUES = {
+#     'default': {
+#         'HOST': 'localhost',
+#         'PORT': 6379,
+#         'DB': 0,
+#     }
+# }
+
 BRAINTREE_MERCHANT_ID = os.getenv('BRAINTREE_MERCHANT_ID')
 BRAINTREE_PUBLIC_KEY = os.getenv('BRAINTREE_PUBLIC_KEY')
 BRAINTREE_PRIVATE_KEY = os.getenv('BRAINTREE_PRIVATE_KEY')
+
+SPARKPOST_API_KEY = os.getenv('SPARKPOST_API_KEY')
+
+EMAIL_BACKEND = 'sparkpost.django.email_backend.SparkPostEmailBackend'

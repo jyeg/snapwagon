@@ -10,6 +10,7 @@ urlpatterns = [
     url(r'^grappelli/', include('grappelli.urls')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^api/', include('organizations.urls', namespace='api')),
+    # url(r'^django-rq/', include('django_rq.urls')),
 ]
 
 if settings.DEBUG:

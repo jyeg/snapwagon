@@ -2,24 +2,28 @@
 import datetime
 import decimal
 import re
-from unittest import (mock, skip)
+from unittest import skip
+from unittest.mock import (Mock, patch)
 
 # Django imports.
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 # Third-party imports.
+from braintree import Transaction
 from factory import (LazyAttribute, Sequence)
 from factory.fuzzy import (FuzzyDateTime, FuzzyDecimal)
 from factory.django import DjangoModelFactory
-from nose.tools import (assert_count_equal, assert_dict_equal, assert_equal, assert_greater, assert_in,
-                        assert_list_equal, assert_regexp_matches)
+from nose.tools import (assert_dict_equal, assert_equal, assert_in, assert_list_equal, assert_regexp_matches,
+                        assert_true)
 from rest_framework.reverse import reverse
 from rest_framework.test import (APIClient, APITestCase)
+import sparkpost
 
 # Local imports.
 from ..models import (Customer, Offer, Order, Organization, Voucher)
-from ..serializers import (CustomerSerializer, OfferSerializer, OrderSerializer)
+from ..serializers import (CustomerSerializer, OfferSerializer, OrderSerializer, SparkPostSerializer)
+from ..apis import SubstitutionData
 
 __author__ = 'Jason Parent'
 
@@ -30,7 +34,7 @@ class OfferFactory(DjangoModelFactory):
     title = Sequence(lambda n: f'Offer {n}')
     value = FuzzyDecimal(low=20.00, high=40.00)
     discounted_value = FuzzyDecimal(low=10.00, high=15.00)
-    expiration_ts = FuzzyDateTime(start_dt=timezone.now() + datetime.timedelta(days=7), 
+    expiration_ts = FuzzyDateTime(start_dt=timezone.now() + datetime.timedelta(days=7),
                                   end_dt=timezone.now() + datetime.timedelta(days=17))
 
     class Meta:
@@ -46,12 +50,13 @@ class OfferTest(APITestCase):
         response = self.client.get(reverse('api:offer_list'))
         assert_equal(200, response.status_code)
         assert_equal(5, len(response.data))
-        assert_count_equal(OfferSerializer(offers, many=True).data, response.data)
+        self.assertCountEqual(OfferSerializer(offers, many=True).data, response.data)
 
     def test_user_can_retrieve_offer(self):
         seven_days_from_now = timezone.now() + datetime.timedelta(days=7)
         offer = Offer.objects.create(
-            title='Offer', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'), expiration_ts=seven_days_from_now)
+            title='Offer', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'),
+            expiration_ts=seven_days_from_now)
         response = self.client.get(offer.get_absolute_url())
         assert_dict_equal(OfferSerializer(offer).data, response.data)
         assert_equal(seven_days_from_now, parse_datetime(response.data.get('expiration_ts')))
@@ -60,27 +65,33 @@ class OfferTest(APITestCase):
         seven_days_ago = timezone.now() - datetime.timedelta(days=7)
         seven_days_from_now = timezone.now() + datetime.timedelta(days=7)
         offer1 = Offer.objects.create(
-            title='Offer 1', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'), expiration_ts=seven_days_from_now)
+            title='Offer 1', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'),
+            expiration_ts=seven_days_from_now)
         offer2 = Offer.objects.create(
-            title='Offer 2', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'), expiration_ts=seven_days_ago)
+            title='Offer 2', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'),
+            expiration_ts=seven_days_ago)
         offer3 = Offer.objects.create(
-            title='Offer 3', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'), expiration_ts=seven_days_from_now)
+            title='Offer 3', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'),
+            expiration_ts=seven_days_from_now)
         response = self.client.get(reverse('api:offer_list'))
         assert_equal(200, response.status_code)
-        assert_count_equal(OfferSerializer([offer1, offer3], many=True).data, response.data)
+        self.assertCountEqual(OfferSerializer([offer1, offer3], many=True).data, response.data)
 
     def test_user_can_retrieve_offers_by_organization_id(self):
         organization1 = Organization.objects.create(name='Organization 1')
         organization2 = Organization.objects.create(name='Organization 2')
         offer1 = Offer.objects.create(
-            title='Offer 1', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'), organization=organization1)
+            title='Offer 1', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'),
+            organization=organization1)
         offer2 = Offer.objects.create(
-            title='Offer 2', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'), organization=organization1)
+            title='Offer 2', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'),
+            organization=organization1)
         offer3 = Offer.objects.create(
-            title='Offer 3', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'), organization=organization2)
+            title='Offer 3', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'),
+            organization=organization2)
         response = self.client.get(reverse('api:offer_by_organization', kwargs={'organization_id': organization1.id}))
         assert_equal(200, response.status_code)
-        assert_count_equal(OfferSerializer([offer1, offer2], many=True).data, response.data)
+        self.assertCountEqual(OfferSerializer([offer1, offer2], many=True).data, response.data)
 
     def test_user_can_retrieve_offers_in_order_by_rank(self):
         offer1 = Offer.objects.create(
@@ -123,8 +134,13 @@ class OrderTest(APITestCase):
         assert_in('token', response.data)
 
     def test_new_customer_can_place_order(self):
-        mock_result = mock.Mock(is_success=True)
-        mock.patch('organizations.apis.braintree.Transaction.sale', return_value=mock_result).start()
+        # Mock call to Braintree.
+        mock_transaction = Mock(is_success=True)
+        patch('organizations.apis.braintree.Transaction.sale', return_value=mock_transaction).start()
+
+        # Mock call to SparkPost.
+        patch('organizations.apis.sparkpost.SparkPost').start()
+
         assert_equal(0, Customer.objects.count())
         order = self.create_order(self.offer.id)
         response = self.client.post(reverse('api:order_list'), data=order, format='json')
@@ -134,8 +150,13 @@ class OrderTest(APITestCase):
         assert_dict_equal(OrderSerializer(order).data, response.data)
 
     def test_existing_customer_can_place_order(self):
-        mock_result = mock.Mock(is_success=True)
-        mock.patch('organizations.apis.braintree.Transaction.sale', return_value=mock_result).start()
+        # Mock call to Braintree.
+        mock_transaction = Mock(is_success=True)
+        patch('organizations.apis.braintree.Transaction.sale', return_value=mock_transaction).start()
+
+        # Mock call to SparkPost.
+        patch('organizations.apis.sparkpost.SparkPost').start()
+
         Customer.objects.create(first_name='Jason', last_name='Parent', email='jason.a.parent@gmail.com')
         assert_equal(1, Customer.objects.count())
         order = self.create_order(self.offer.id)
@@ -146,8 +167,13 @@ class OrderTest(APITestCase):
         assert_dict_equal(OrderSerializer(order).data, response.data)
 
     def test_user_can_place_order_with_success(self):
-        mock_result = mock.Mock(is_success=True)
-        mock_sale = mock.patch('organizations.apis.braintree.Transaction.sale', return_value=mock_result).start()
+        # Mock call to Braintree.
+        mock_transaction = Mock(is_success=True)
+        mock_sale = patch('organizations.apis.braintree.Transaction.sale', return_value=mock_transaction).start()
+
+        # Mock call to SparkPost.
+        patch('organizations.apis.sparkpost.SparkPost').start()
+
         order = self.create_order(self.offer.id, nonce='fake-valid-nonce')
         response = self.client.post(reverse('api:order_list'), data=order, format='json')
         assert_equal(200, response.status_code)
@@ -163,8 +189,13 @@ class OrderTest(APITestCase):
         assert_equal(1, vouchers.count())
 
     def test_user_can_place_order_with_failure(self):
-        mock_result = mock.Mock(is_success=False, message='Visa card declined.')
-        mock_sale = mock.patch('organizations.apis.braintree.Transaction.sale', return_value=mock_result).start()
+        # Mock call to Braintree.
+        mock_transaction = Mock(is_success=False, message='Visa card declined.')
+        mock_sale = patch('organizations.apis.braintree.Transaction.sale', return_value=mock_transaction).start()
+
+        # Mock call to SparkPost.
+        patch('organizations.apis.sparkpost.SparkPost').start()
+
         order = self.create_order(self.offer.id, nonce='fake-processor-declined-visa-nonce')
         response = self.client.post(reverse('api:order_list'), data=order, format='json')
         assert_equal(400, response.status_code)
@@ -179,8 +210,45 @@ class OrderTest(APITestCase):
         vouchers = Voucher.objects.filter(customer__email='jason.a.parent@gmail.com', offer_id=self.offer.id)
         assert_equal(0, vouchers.count())
 
+    def test_successful_order_generates_email(self):
+        # Mock call to Braintree.
+        mock_transaction = Mock(is_success=True)
+        mock_transaction.transaction.credit_card_details.card_type = 'Visa'
+        mock_transaction.transaction.credit_card_details.cardholder_name = 'Jason Parent'
+        mock_transaction.transaction.credit_card_details.last_4 = '1234'
+        mock_sale = patch('organizations.apis.braintree.Transaction.sale', return_value=mock_transaction).start()
+
+        # Mock call to SparkPost.
+        mock_send = Mock()
+        mock_sparkpost = patch('organizations.apis.sparkpost.SparkPost').start()
+        mock_sparkpost.return_value.transmissions.send = mock_send
+
+        order = self.create_order(self.offer.id, nonce='fake-valid-nonce')
+        response = self.client.post(reverse('api:order_list'), data=order, format='json')
+        assert_equal(200, response.status_code)
+        assert_true(mock_send.called)
+        call_args, call_kwargs = mock_send.call_args
+        assert_list_equal([order['customer']['email']], call_kwargs.get('recipients'))
+        assert_equal('order-confirmation', call_kwargs.get('template'))
+        assert_true(call_kwargs.get('use_draft_template'))
+        assert_dict_equal(SparkPostSerializer(SubstitutionData(
+            transaction=mock_transaction.transaction,
+            offer=Offer.objects.get(id=order['offer']['id']),
+            organization=Organization.objects.last(),
+            vouchers=Voucher.objects.all()
+        )).data, call_kwargs.get('substitution_data'))
+
+    @skip
+    def test_user_receives_email_after_successful_order(self):
+        organization = Organization.objects.create(name='ABC Inc.', desc='')
+        offer = Offer.objects.create(title='Offer', value=decimal.Decimal('20.00'),
+                                     discounted_value=decimal.Decimal('15.00'), organization=organization)
+        order = self.create_order(offer.id, nonce='fake-valid-nonce')
+        response = self.client.post(reverse('api:order_list'), data=order, format='json')
+        assert_equal(200, response.status_code)
+
     def tearDown(self):
-        mock.patch.stopall()
+        patch.stopall()
 
 
 class VoucherTest(APITestCase):

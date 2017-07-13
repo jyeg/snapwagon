@@ -1,6 +1,8 @@
 # Standard library imports.
-# import logging
+import collections
 import datetime
+import json
+import logging
 
 # Django imports.
 # from django.conf import settings
@@ -10,14 +12,18 @@ from django.utils import timezone
 import braintree
 from rest_framework import (status, views, viewsets)
 from rest_framework.response import Response
+import sparkpost
+from sparkpost.exceptions import SparkPostAPIException
 
 # Local imports.
 from .models import (Customer, Offer, Order, Voucher)
-from .serializers import (CustomerSerializer, OfferSerializer, OrderSerializer)
+from .serializers import (CustomerSerializer, OfferSerializer, OrderSerializer, SparkPostSerializer)
 
 __author__ = 'Jason Parent'
 
-# logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+
+SubstitutionData = collections.namedtuple('SubstitutionData', ['transaction', 'offer', 'organization', 'vouchers'])
 
 
 class ClientToken(views.APIView):
@@ -55,7 +61,7 @@ class OrderView(views.APIView):
         order = Order.objects.create(**request_data)
 
         # Process sale.
-        result = braintree.Transaction.sale({
+        transaction = braintree.Transaction.sale({
             'amount': offer.discounted_value * int(order.quantity),
             # 'customer': CustomerSerializer(order.customer).data,
             'options': {
@@ -64,12 +70,29 @@ class OrderView(views.APIView):
             'payment_method_nonce': sale_data.get('payment_method_nonce')
         })
 
-        # Create vouchers.
-        if result.is_success:
-            Voucher.objects.bulk_create([Voucher(customer=customer, offer=offer) for _ in range(order.quantity)])
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'detail': result.message})
+        if transaction.is_success:
+            # Create vouchers.
+            vouchers = [
+                Voucher.objects.create(customer=customer, offer=offer)
+                for _ in range(order.quantity)
+            ]
 
-        # TODO: Send email to customer with vouchers' coupon codes.
+            # Send email.
+            try:
+                substitution_data = SubstitutionData(transaction=transaction.transaction, offer=offer,
+                                                     organization=offer.organization, vouchers=vouchers)
+
+                sp = sparkpost.SparkPost()
+                sp.transmissions.send(
+                    recipients=[customer_email],
+                    template='order-confirmation',
+                    use_draft_template=True,
+                    substitution_data=SparkPostSerializer(substitution_data).data
+                )
+            except SparkPostAPIException as exception:
+                logger.error(exception.errors)
+
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'detail': transaction.message})
 
         return Response(data=OrderSerializer(order).data)
