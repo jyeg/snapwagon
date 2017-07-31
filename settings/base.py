@@ -2,7 +2,7 @@
 import os
 
 # Third-party imports.
-import braintree
+import stripe
 
 __author__ = 'Jason Parent'
 
@@ -125,10 +125,8 @@ CORS_ORIGIN_ALLOW_ALL = True
 #     }
 # }
 
-BRAINTREE_MERCHANT_ID = os.getenv('BRAINTREE_MERCHANT_ID')
-BRAINTREE_PUBLIC_KEY = os.getenv('BRAINTREE_PUBLIC_KEY')
-BRAINTREE_PRIVATE_KEY = os.getenv('BRAINTREE_PRIVATE_KEY')
-
 SPARKPOST_API_KEY = os.getenv('SPARKPOST_API_KEY')
+
+STRIPE_API_KEY = os.getenv('STRIPE_API_KEY')
 
 EMAIL_BACKEND = 'sparkpost.django.email_backend.SparkPostEmailBackend'

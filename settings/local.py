@@ -34,9 +34,4 @@ LOGGING = {
     },
 }
 
-braintree.Configuration.configure(
-    braintree.Environment.Sandbox,
-    merchant_id=BRAINTREE_MERCHANT_ID,
-    public_key=BRAINTREE_PUBLIC_KEY,
-    private_key=BRAINTREE_PRIVATE_KEY
-)
+stripe.api_key = STRIPE_API_KEY
