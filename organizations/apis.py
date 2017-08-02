@@ -9,11 +9,11 @@ import logging
 from django.utils import timezone
 
 # Third-party imports.
-import braintree
 from rest_framework import (status, views, viewsets)
 from rest_framework.response import Response
 import sparkpost
 from sparkpost.exceptions import SparkPostAPIException
+import stripe
 
 # Local imports.
 from .models import (Customer, Offer, Order, Voucher)
@@ -23,12 +23,14 @@ __author__ = 'Jason Parent'
 
 logger = logging.getLogger(__name__)
 
-SubstitutionData = collections.namedtuple('SubstitutionData', ['transaction', 'offer', 'organization', 'vouchers'])
+SubstitutionData = collections.namedtuple('SubstitutionData', ['charge', 'offer', 'organization', 'vouchers'])
 
 
 class ClientToken(views.APIView):
-    def get(self, request, *args, **kwargs):
-        return Response(data={'token': braintree.ClientToken.generate()})
+    def post(self, request, *args, **kwargs):
+        card = request.data.get('card')
+        token = stripe.Token.create(card=card)
+        return Response(data={'token': token.id})
 
 
 class OfferView(viewsets.ReadOnlyModelViewSet):
@@ -49,7 +51,7 @@ class OfferByOrganizationView(viewsets.ReadOnlyModelViewSet):
 
 class OrderView(views.APIView):
     def post(self, request, *args, **kwargs):
-        sale_data = request.data.pop('sale')
+        charge_data = request.data.pop('charge')
         customer_data = request.data.pop('customer')
         customer_email = customer_data.pop('email')
         customer, _ = Customer.objects.get_or_create(email=customer_email, defaults=customer_data)
@@ -60,17 +62,14 @@ class OrderView(views.APIView):
         request_data['offer_id'] = offer.id
         order = Order.objects.create(**request_data)
 
-        # Process sale.
-        transaction = braintree.Transaction.sale({
-            'amount': offer.discounted_value * int(order.quantity),
-            # 'customer': CustomerSerializer(order.customer).data,
-            'options': {
-                'submit_for_settlement': True
-            },
-            'payment_method_nonce': sale_data.get('payment_method_nonce')
-        })
+        # Process charge.
+        charge = stripe.Charge.create(
+            amount=int(offer.discounted_value * int(order.quantity) * 100),
+            currency='usd',
+            source=charge_data.get('token')
+        )
 
-        if transaction.is_success:
+        if charge.status == 'succeeded':
             # Create vouchers.
             vouchers = [
                 Voucher.objects.create(customer=customer, offer=offer)
@@ -79,7 +78,7 @@ class OrderView(views.APIView):
 
             # Send email.
             try:
-                substitution_data = SubstitutionData(transaction=transaction.transaction, offer=offer,
+                substitution_data = SubstitutionData(charge=charge, offer=offer,
                                                      organization=offer.organization, vouchers=vouchers)
 
                 sp = sparkpost.SparkPost()
@@ -93,6 +92,6 @@ class OrderView(views.APIView):
                 logger.error(exception.errors)
 
         else:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'detail': transaction.message})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'detail': charge.failure_message})
 
         return Response(data=OrderSerializer(order).data)

@@ -55,9 +55,9 @@ class CouponCodeSerializer(serializers.ModelSerializer):
         fields = ('coupon_code',)
 
 
-class CreditCardDetailsSerializer(serializers.Serializer):
-    card_type = serializers.CharField(read_only=True)
-    cardholder_name = serializers.CharField(read_only=True)
+class SourceSerializer(serializers.Serializer):
+    brand = serializers.CharField(read_only=True)
+    customer = serializers.CharField(read_only=True)
     last_4 = serializers.CharField(read_only=True)
 
     def create(self, validated_data):
@@ -67,8 +67,8 @@ class CreditCardDetailsSerializer(serializers.Serializer):
         raise NotImplementedError('Update not available.')
 
 
-class TransactionSerializer(serializers.Serializer):
-    credit_card_details = CreditCardDetailsSerializer(read_only=True)
+class ChargeSerializer(serializers.Serializer):
+    source = SourceSerializer(read_only=True)
 
     def create(self, validated_data):
         raise NotImplementedError('Create not available.')
@@ -78,7 +78,7 @@ class TransactionSerializer(serializers.Serializer):
 
 
 class SparkPostSerializer(serializers.Serializer):
-    transaction = TransactionSerializer(read_only=True)
+    charge = ChargeSerializer(read_only=True)
     offer = OfferSerializer(read_only=True)
     organization = OrganizationSerializer(read_only=True)
     vouchers = CouponCodeSerializer(read_only=True, many=True)

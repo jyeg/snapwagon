@@ -10,7 +10,6 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 # Third-party imports.
-from braintree import Transaction
 from factory import (LazyAttribute, Sequence)
 from factory.fuzzy import (FuzzyDateTime, FuzzyDecimal)
 from factory.django import DjangoModelFactory
@@ -19,6 +18,7 @@ from nose.tools import (assert_dict_equal, assert_equal, assert_in, assert_list_
 from rest_framework.reverse import reverse
 from rest_framework.test import (APIClient, APITestCase)
 import sparkpost
+import stripe
 
 # Local imports.
 from ..models import (Customer, Offer, Order, Organization, Voucher)
@@ -111,7 +111,7 @@ class OrderTest(APITestCase):
         self.offer = Offer.objects.create(
             title='Offer', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'))
 
-    def create_order(self, offer_id, nonce='fake-valid-nonce'):
+    def create_order(self, offer_id, token='tok_visa'):
         return {
             'customer': {
                 'first_name': 'Jason',
@@ -123,20 +123,27 @@ class OrderTest(APITestCase):
                 'id': str(offer_id)
             },
             'quantity': 1,
-            'sale': {
-                'payment_method_nonce': nonce
+            'charge': {
+                'token': token
             }
         }
 
     @skip
     def test_user_can_retrieve_client_token(self):
-        response = self.client.get(reverse('api:client_token'))
+        response = self.client.post(reverse('api:client_token'), data={
+            'card': {
+                'number': '4242424242424242',
+                'exp_month': 12,
+                'exp_year': 2018,
+                'cvc': '123'
+            }
+        }, format='json')
         assert_in('token', response.data)
 
     def test_new_customer_can_place_order(self):
-        # Mock call to Braintree.
-        mock_transaction = Mock(is_success=True)
-        patch('organizations.apis.braintree.Transaction.sale', return_value=mock_transaction).start()
+        # Mock call to Stripe.
+        mock_charge = Mock(status='succeeded')
+        patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
 
         # Mock call to SparkPost.
         patch('organizations.apis.sparkpost.SparkPost').start()
@@ -150,9 +157,9 @@ class OrderTest(APITestCase):
         assert_dict_equal(OrderSerializer(order).data, response.data)
 
     def test_existing_customer_can_place_order(self):
-        # Mock call to Braintree.
-        mock_transaction = Mock(is_success=True)
-        patch('organizations.apis.braintree.Transaction.sale', return_value=mock_transaction).start()
+        # Mock call to Stripe.
+        mock_charge = Mock(status='succeeded')
+        patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
 
         # Mock call to SparkPost.
         patch('organizations.apis.sparkpost.SparkPost').start()
@@ -167,63 +174,59 @@ class OrderTest(APITestCase):
         assert_dict_equal(OrderSerializer(order).data, response.data)
 
     def test_user_can_place_order_with_success(self):
-        # Mock call to Braintree.
-        mock_transaction = Mock(is_success=True)
-        mock_sale = patch('organizations.apis.braintree.Transaction.sale', return_value=mock_transaction).start()
+        # Mock call to Stripe.
+        mock_charge = Mock(status='succeeded')
+        mock_create = patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
 
         # Mock call to SparkPost.
         patch('organizations.apis.sparkpost.SparkPost').start()
 
-        order = self.create_order(self.offer.id, nonce='fake-valid-nonce')
+        order = self.create_order(self.offer.id, token='tok_visa')
         response = self.client.post(reverse('api:order_list'), data=order, format='json')
         assert_equal(200, response.status_code)
-        mock_sale.assert_called_once_with({
-            'amount': self.offer.discounted_value * 1,
+        mock_create.assert_called_once_with(
+            amount=int(self.offer.discounted_value * 1 * 100),
             # 'customer': CustomerSerializer(Customer.objects.last()).data,
-            'options': {
-                'submit_for_settlement': True
-            },
-            'payment_method_nonce': 'fake-valid-nonce',
-        })
+            currency='usd',
+            source='tok_visa'
+        )
         vouchers = Voucher.objects.filter(customer__email='jason.a.parent@gmail.com', offer_id=self.offer.id)
         assert_equal(1, vouchers.count())
 
     def test_user_can_place_order_with_failure(self):
-        # Mock call to Braintree.
-        mock_transaction = Mock(is_success=False, message='Visa card declined.')
-        mock_sale = patch('organizations.apis.braintree.Transaction.sale', return_value=mock_transaction).start()
+        # Mock call to Stripe.
+        mock_charge = Mock(status='failed', failure_message='Visa card declined.')
+        mock_create = patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
 
         # Mock call to SparkPost.
         patch('organizations.apis.sparkpost.SparkPost').start()
 
-        order = self.create_order(self.offer.id, nonce='fake-processor-declined-visa-nonce')
+        order = self.create_order(self.offer.id, token='tok_chargeDeclined')
         response = self.client.post(reverse('api:order_list'), data=order, format='json')
         assert_equal(400, response.status_code)
-        mock_sale.assert_called_once_with({
-            'amount': self.offer.discounted_value * 1,
+        mock_create.assert_called_once_with(
+            amount=int(self.offer.discounted_value * 1 * 100),
             # 'customer': CustomerSerializer(Customer.objects.last()).data,
-            'options': {
-                'submit_for_settlement': True
-            },
-            'payment_method_nonce': 'fake-processor-declined-visa-nonce',
-        })
+            currency='usd',
+            source='tok_chargeDeclined'
+        )
         vouchers = Voucher.objects.filter(customer__email='jason.a.parent@gmail.com', offer_id=self.offer.id)
         assert_equal(0, vouchers.count())
 
     def test_successful_order_generates_email(self):
-        # Mock call to Braintree.
-        mock_transaction = Mock(is_success=True)
-        mock_transaction.transaction.credit_card_details.card_type = 'Visa'
-        mock_transaction.transaction.credit_card_details.cardholder_name = 'Jason Parent'
-        mock_transaction.transaction.credit_card_details.last_4 = '1234'
-        mock_sale = patch('organizations.apis.braintree.Transaction.sale', return_value=mock_transaction).start()
+        # Mock call to Stripe.
+        mock_charge = Mock(status='succeeded')
+        mock_charge.source.brand = 'Visa'
+        mock_charge.source.customer = 'Jason Parent'
+        mock_charge.source.last_4 = '1234'
+        mock_create = patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
 
         # Mock call to SparkPost.
         mock_send = Mock()
         mock_sparkpost = patch('organizations.apis.sparkpost.SparkPost').start()
         mock_sparkpost.return_value.transmissions.send = mock_send
 
-        order = self.create_order(self.offer.id, nonce='fake-valid-nonce')
+        order = self.create_order(self.offer.id, token='tok_visa')
         response = self.client.post(reverse('api:order_list'), data=order, format='json')
         assert_equal(200, response.status_code)
         assert_true(mock_send.called)
@@ -232,7 +235,7 @@ class OrderTest(APITestCase):
         assert_equal('order-confirmation', call_kwargs.get('template'))
         assert_true(call_kwargs.get('use_draft_template'))
         assert_dict_equal(SparkPostSerializer(SubstitutionData(
-            transaction=mock_transaction.transaction,
+            charge=mock_charge,
             offer=Offer.objects.get(id=order['offer']['id']),
             organization=Organization.objects.last(),
             vouchers=Voucher.objects.all()
@@ -243,7 +246,7 @@ class OrderTest(APITestCase):
         organization = Organization.objects.create(name='ABC Inc.', desc='')
         offer = Offer.objects.create(title='Offer', value=decimal.Decimal('20.00'),
                                      discounted_value=decimal.Decimal('15.00'), organization=organization)
-        order = self.create_order(offer.id, nonce='fake-valid-nonce')
+        order = self.create_order(offer.id, token='tok_visa')
         response = self.client.post(reverse('api:order_list'), data=order, format='json')
         assert_equal(200, response.status_code)
 
