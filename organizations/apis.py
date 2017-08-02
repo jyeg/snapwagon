@@ -14,6 +14,7 @@ from rest_framework.response import Response
 import sparkpost
 from sparkpost.exceptions import SparkPostAPIException
 import stripe
+from stripe.error import CardError
 
 # Local imports.
 from .models import (Customer, Offer, Order, Voucher)
@@ -63,35 +64,35 @@ class OrderView(views.APIView):
         order = Order.objects.create(**request_data)
 
         # Process charge.
-        charge = stripe.Charge.create(
-            amount=int(offer.discounted_value * int(order.quantity) * 100),
-            currency='usd',
-            source=charge_data.get('token')
-        )
-
-        if charge.status == 'succeeded':
-            # Create vouchers.
-            vouchers = [
-                Voucher.objects.create(customer=customer, offer=offer)
-                for _ in range(order.quantity)
-            ]
-
-            # Send email.
-            try:
-                substitution_data = SubstitutionData(charge=charge, offer=offer,
-                                                     organization=offer.organization, vouchers=vouchers)
-
-                sp = sparkpost.SparkPost()
-                sp.transmissions.send(
-                    recipients=[customer_email],
-                    template='order-confirmation',
-                    use_draft_template=True,
-                    substitution_data=SparkPostSerializer(substitution_data).data
-                )
-            except SparkPostAPIException as exception:
-                logger.error(exception.errors)
-
+        try:
+            charge = stripe.Charge.create(
+                amount=int(offer.discounted_value * int(order.quantity) * 100),
+                currency='usd',
+                source=charge_data.get('token')
+            )
+        except CardError as error:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'detail': error.code})
         else:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'detail': charge.failure_message})
+            if charge.status == 'succeeded':
+                # Create vouchers.
+                vouchers = [
+                    Voucher.objects.create(customer=customer, offer=offer)
+                    for _ in range(order.quantity)
+                ]
 
-        return Response(data=OrderSerializer(order).data)
+                # Send email.
+                try:
+                    substitution_data = SubstitutionData(charge=charge, offer=offer,
+                                                         organization=offer.organization, vouchers=vouchers)
+
+                    sp = sparkpost.SparkPost()
+                    sp.transmissions.send(
+                        recipients=[customer_email],
+                        template='order-confirmation',
+                        use_draft_template=True,
+                        substitution_data=SparkPostSerializer(substitution_data).data
+                    )
+                except SparkPostAPIException as exception:
+                    logger.error(exception.errors)
+
+            return Response(data=OrderSerializer(order).data)

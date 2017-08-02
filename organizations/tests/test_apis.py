@@ -19,6 +19,7 @@ from rest_framework.reverse import reverse
 from rest_framework.test import (APIClient, APITestCase)
 import sparkpost
 import stripe
+from stripe.error import CardError
 
 # Local imports.
 from ..models import (Customer, Offer, Order, Organization, Voucher)
@@ -113,6 +114,9 @@ class OrderTest(APITestCase):
 
     def create_order(self, offer_id, token='tok_visa'):
         return {
+            'charge': {
+                'token': token
+            },
             'customer': {
                 'first_name': 'Jason',
                 'last_name': 'Parent',
@@ -122,10 +126,7 @@ class OrderTest(APITestCase):
             'offer': {
                 'id': str(offer_id)
             },
-            'quantity': 1,
-            'charge': {
-                'token': token
-            }
+            'quantity': 1
         }
 
     @skip
@@ -195,8 +196,9 @@ class OrderTest(APITestCase):
 
     def test_user_can_place_order_with_failure(self):
         # Mock call to Stripe.
-        mock_charge = Mock(status='failed', failure_message='Visa card declined.')
-        mock_create = patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
+        mock_create = patch('organizations.apis.stripe.Charge.create', side_effect=CardError(
+            message='', param='', code='card_declined'
+        )).start()
 
         # Mock call to SparkPost.
         patch('organizations.apis.sparkpost.SparkPost').start()
