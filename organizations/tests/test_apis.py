@@ -219,7 +219,6 @@ class OrderTest(APITestCase):
         # Mock call to Stripe.
         mock_charge = Mock(status='succeeded')
         mock_charge.source.brand = 'Visa'
-        mock_charge.source.customer = 'Jason Parent'
         mock_charge.source.last_4 = '1234'
         mock_create = patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
 
@@ -238,6 +237,10 @@ class OrderTest(APITestCase):
         assert_true(call_kwargs.get('use_draft_template'))
         assert_dict_equal(SparkPostSerializer(SubstitutionData(
             charge=mock_charge,
+            customer_name='{} {}'.format(
+                order['customer']['first_name'], 
+                order['customer']['last_name']
+            ),
             offer=Offer.objects.get(id=order['offer']['id']),
             organization=Organization.objects.last(),
             vouchers=Voucher.objects.all()

@@ -84,6 +84,9 @@ class Customer(models.Model):
     offers = models.ManyToManyField('organizations.Offer', through='organizations.Order',
                                     through_fields=('customer', 'offer'))
 
+    def get_full_name(self):
+        return '{} {}'.format(self.first_name, self.last_name)
+
     @staticmethod
     def autocomplete_search_fields():
         return 'first_name__icontains', 'last_name__icontains', 'email__icontains',

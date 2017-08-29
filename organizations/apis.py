@@ -24,7 +24,7 @@ __author__ = 'Jason Parent'
 
 logger = logging.getLogger(__name__)
 
-SubstitutionData = collections.namedtuple('SubstitutionData', ['charge', 'offer', 'organization', 'vouchers'])
+SubstitutionData = collections.namedtuple('SubstitutionData', ['charge', 'customer_name', 'offer', 'organization', 'vouchers'])
 
 
 class ClientToken(views.APIView):
@@ -82,8 +82,13 @@ class OrderView(views.APIView):
 
                 # Send email.
                 try:
-                    substitution_data = SubstitutionData(charge=charge, offer=offer,
-                                                         organization=offer.organization, vouchers=vouchers)
+                    substitution_data = SubstitutionData(
+                        charge=charge, 
+                        customer_name=customer.get_full_name(), 
+                        offer=offer, 
+                        organization=offer.organization, 
+                        vouchers=vouchers
+                    )
 
                     sp = sparkpost.SparkPost()
                     sp.transmissions.send(
