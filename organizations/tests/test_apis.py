@@ -219,7 +219,7 @@ class OrderTest(APITestCase):
         # Mock call to Stripe.
         mock_charge = Mock(status='succeeded')
         mock_charge.source.brand = 'Visa'
-        mock_charge.source.last_4 = '1234'
+        mock_charge.source.last4 = '1234'
         mock_create = patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
 
         # Mock call to SparkPost.

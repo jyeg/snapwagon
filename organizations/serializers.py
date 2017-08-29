@@ -57,7 +57,7 @@ class CouponCodeSerializer(serializers.ModelSerializer):
 
 class SourceSerializer(serializers.Serializer):
     brand = serializers.CharField(read_only=True)
-    last_4 = serializers.CharField(read_only=True)
+    last4 = serializers.CharField(read_only=True)
 
     def create(self, validated_data):
         raise NotImplementedError('Create not available.')
