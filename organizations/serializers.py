@@ -57,8 +57,7 @@ class CouponCodeSerializer(serializers.ModelSerializer):
 
 class SourceSerializer(serializers.Serializer):
     brand = serializers.CharField(read_only=True)
-    customer = serializers.CharField(read_only=True)
-    last_4 = serializers.CharField(read_only=True)
+    last4 = serializers.CharField(read_only=True)
 
     def create(self, validated_data):
         raise NotImplementedError('Create not available.')
@@ -79,6 +78,7 @@ class ChargeSerializer(serializers.Serializer):
 
 class SparkPostSerializer(serializers.Serializer):
     charge = ChargeSerializer(read_only=True)
+    customer_name = serializers.CharField(read_only=True)
     offer = OfferSerializer(read_only=True)
     organization = OrganizationSerializer(read_only=True)
     vouchers = CouponCodeSerializer(read_only=True, many=True)
