@@ -87,8 +87,7 @@ class OrderView(views.APIView):
                         customer_name=customer.get_full_name(),
                         offer=offer,
                         organization=offer.organization,
-                        vouchers=vouchers,
-                        totalAmount=offer.discounted_value * int(order.quantity)
+                        vouchers=vouchers
                     )
 
                     sp = sparkpost.SparkPost()
