@@ -83,11 +83,12 @@ class OrderView(views.APIView):
                 # Send email.
                 try:
                     substitution_data = SubstitutionData(
-                        charge=charge, 
-                        customer_name=customer.get_full_name(), 
-                        offer=offer, 
-                        organization=offer.organization, 
-                        vouchers=vouchers
+                        charge=charge,
+                        customer_name=customer.get_full_name(),
+                        offer=offer,
+                        organization=offer.organization,
+                        vouchers=vouchers,
+                        totalAmount=offer.discounted_value * int(order.quantity)
                     )
 
                     sp = sparkpost.SparkPost()
