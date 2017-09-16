@@ -143,7 +143,7 @@ class OrderTest(APITestCase):
 
     def test_new_customer_can_place_order(self):
         # Mock call to Stripe.
-        mock_charge = Mock(status='succeeded')
+        mock_charge = Mock(amount=1500, status='succeeded')
         patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
 
         # Mock call to SparkPost.
@@ -159,7 +159,7 @@ class OrderTest(APITestCase):
 
     def test_existing_customer_can_place_order(self):
         # Mock call to Stripe.
-        mock_charge = Mock(status='succeeded')
+        mock_charge = Mock(amount=1500, status='succeeded')
         patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
 
         # Mock call to SparkPost.
@@ -176,7 +176,7 @@ class OrderTest(APITestCase):
 
     def test_user_can_place_order_with_success(self):
         # Mock call to Stripe.
-        mock_charge = Mock(status='succeeded')
+        mock_charge = Mock(amount=1500, status='succeeded')
         mock_create = patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()
 
         # Mock call to SparkPost.
@@ -218,6 +218,7 @@ class OrderTest(APITestCase):
     def test_successful_order_generates_email(self):
         # Mock call to Stripe.
         mock_charge = Mock(status='succeeded')
+        mock_charge.amount = 1500
         mock_charge.source.brand = 'Visa'
         mock_charge.source.last4 = '1234'
         mock_create = patch('organizations.apis.stripe.Charge.create', return_value=mock_charge).start()

@@ -67,6 +67,7 @@ class SourceSerializer(serializers.Serializer):
 
 
 class ChargeSerializer(serializers.Serializer):
+    amount = serializers.IntegerField(read_only=True)
     source = SourceSerializer(read_only=True)
 
     def create(self, validated_data):
