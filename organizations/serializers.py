@@ -68,7 +68,11 @@ class SourceSerializer(serializers.Serializer):
 
 class ChargeSerializer(serializers.Serializer):
     amount = serializers.IntegerField(read_only=True)
+    amount_in_dollars = serializers.SerializerMethodField(read_only=True)
     source = SourceSerializer(read_only=True)
+
+    def get_amount_in_dollars(self, obj):
+        return '{:.2f}'.format(round(obj.amount / 100, 2))
 
     def create(self, validated_data):
         raise NotImplementedError('Create not available.')

@@ -23,7 +23,8 @@ from stripe.error import CardError
 
 # Local imports.
 from ..models import (Customer, Offer, Order, Organization, Voucher)
-from ..serializers import (CustomerSerializer, OfferSerializer, OrderSerializer, SparkPostSerializer)
+from ..serializers import (ChargeSerializer, CustomerSerializer, OfferSerializer, OrderSerializer, 
+                           SparkPostSerializer)
 from ..apis import SubstitutionData
 
 __author__ = 'Jason Parent'
@@ -246,6 +247,15 @@ class OrderTest(APITestCase):
             organization=Organization.objects.last(),
             vouchers=Voucher.objects.all()
         )).data, call_kwargs.get('substitution_data'))
+
+    def test_charge_serializer(self):
+        mock_charge = Mock(amount=1500)
+        mock_charge.source.brand = 'Visa'
+        mock_charge.source.last4 = '1234'
+        serializer = ChargeSerializer(mock_charge)
+        serialized_data = serializer.data
+        assert_equal(1500, serialized_data.get('amount'))
+        assert_equal('15.00', serialized_data.get('amount_in_dollars'))
 
     @skip
     def test_user_receives_email_after_successful_order(self):
