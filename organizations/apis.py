@@ -54,8 +54,13 @@ class OrderView(views.APIView):
     def post(self, request, *args, **kwargs):
         charge_data = request.data.pop('charge')
         customer_data = request.data.pop('customer')
-        customer_email = customer_data.pop('email')
-        customer, _ = Customer.objects.get_or_create(email=customer_email, defaults=customer_data)
+        customer_email = customer_data.get('email')
+        try:
+            customer = Customer.objects.get(email=customer_email)
+        except Customer.DoesNotExist:
+            customer_serializer = CustomerSerializer(data=customer_data)
+            if customer_serializer.is_valid(raise_exception=True):
+                customer = customer_serializer.create(customer_serializer.validated_data)
         offer_data = request.data.pop('offer')
         offer = Offer.objects.get(id=offer_data.get('id'))
         request_data = request.data

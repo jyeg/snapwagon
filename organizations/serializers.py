@@ -8,6 +8,10 @@ __author__ = 'Jason Parent'
 
 
 class CustomerSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        customer = Customer.objects.create(**validated_data)
+        return customer
+
     class Meta:
         model = Customer
         fields = ('first_name', 'last_name', 'email', 'phone_number',)

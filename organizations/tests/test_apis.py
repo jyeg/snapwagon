@@ -280,3 +280,21 @@ class VoucherTest(APITestCase):
     def test_coupon_code_is_generated_on_voucher_creation(self):
         voucher = Voucher.objects.create(customer=self.customer, offer=self.offer)
         assert_regexp_matches(voucher.coupon_code, COUPON_CODE_PATTERN)
+
+
+class CustomerTest(APITestCase):
+    def test_extra_data_does_not_break_customer_creation(self):
+        customer_serializer = CustomerSerializer(data={
+            # Required fields.
+            'email': 'customer@example.com',
+            'first_name': 'Test',
+            'last_name': 'Customer',
+            'phone_number': '555-555-5555',
+            # Extra fields (not on model).
+            'customer_id': '1234567890',
+            'fake': 'FAKE',
+            'invalid': 'INVALID'
+        })
+        customer_serializer.is_valid(raise_exception=True)
+        customer_serializer.create(customer_serializer.validated_data)
+        assert_equal(1, Customer.objects.count())
