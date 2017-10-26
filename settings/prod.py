@@ -5,7 +5,7 @@ __author__ = 'Jason Parent'
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['snapwagon.io']
+ALLOWED_HOSTS = ['snapwagon.io', '*.snapwagon.io', 'staging.snapwagon.io', '*.staging.snapwagon.io']
 
 MEDIA_ROOT = os.path.abspath(os.path.join(BASE_DIR, '../../media'))
 
