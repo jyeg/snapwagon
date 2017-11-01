@@ -9,7 +9,7 @@ import logging
 from django.utils import timezone
 
 # Third-party imports.
-from rest_framework import (status, views, viewsets)
+from rest_framework import (generics, status, views, viewsets)
 from rest_framework.response import Response
 import sparkpost
 from sparkpost.exceptions import SparkPostAPIException
@@ -17,8 +17,8 @@ import stripe
 from stripe.error import CardError
 
 # Local imports.
-from .models import (Customer, Offer, Order, Voucher)
-from .serializers import (CustomerSerializer, OfferSerializer, OrderSerializer, SparkPostSerializer)
+from .models import (Customer, Offer, Order, Organization, Voucher)
+from .serializers import (CustomerSerializer, OfferSerializer, OrderSerializer, OrganizationSerializer, SparkPostSerializer)
 
 __author__ = 'Jason Parent'
 
@@ -106,3 +106,8 @@ class OrderView(views.APIView):
                     logger.error(exception.errors)
 
             return Response(data=OrderSerializer(order).data)
+        
+        
+class OrganizationView(generics.ListAPIView):
+    queryset = Organization.objects.all()
+    serializer_class = OrganizationSerializer

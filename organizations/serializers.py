@@ -44,7 +44,7 @@ class OrderSerializer(serializers.ModelSerializer):
 class OrganizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Organization
-        fields = ('name', 'desc',)
+        fields = ('id', 'name', 'desc',)
 
 
 class VoucherSerializer(serializers.ModelSerializer):
