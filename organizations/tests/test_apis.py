@@ -23,7 +23,7 @@ from stripe.error import CardError
 
 # Local imports.
 from ..models import (Customer, Offer, Order, Organization, Voucher)
-from ..serializers import (ChargeSerializer, CustomerSerializer, OfferSerializer, OrderSerializer, 
+from ..serializers import (ChargeSerializer, CustomerSerializer, OfferSerializer, OrderSerializer, OrganizationSerializer,
                            SparkPostSerializer)
 from ..apis import SubstitutionData
 
@@ -41,6 +41,14 @@ class OfferFactory(DjangoModelFactory):
 
     class Meta:
         model = Offer
+        
+        
+class OrganizationFactory(DjangoModelFactory):
+    name = Sequence(lambda n: f'Organization {n}')
+    desc = Sequence(lambda n: f'This is organization {n}.')
+    
+    class Meta:
+        model = Organization
 
 
 class OfferTest(APITestCase):
@@ -298,3 +306,15 @@ class CustomerTest(APITestCase):
         customer_serializer.is_valid(raise_exception=True)
         customer_serializer.create(customer_serializer.validated_data)
         assert_equal(1, Customer.objects.count())
+        
+        
+class OrganizationTest(APITestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_user_can_list_offers(self):
+        organizations = OrganizationFactory.create_batch(5)
+        response = self.client.get(reverse('api:organization_list'))
+        assert_equal(200, response.status_code)
+        assert_equal(5, len(response.data))
+        self.assertCountEqual(OrganizationSerializer(organizations, many=True).data, response.data)
