@@ -24,6 +24,7 @@ class Organization(models.Model):
     updated = models.DateTimeField(auto_now=True)
     name = models.CharField(max_length=250)
     desc = models.TextField(null=True, blank=True)
+    stripe_organization_id = models.CharField(max_length=250, null=True, blank=True, help_text='The stripe connect Id used to group payments')
 
     @staticmethod
     def autocomplete_search_fields():

@@ -68,10 +68,10 @@ Snap Wagon uses a PostgreSQL database. Install it with _Homebrew_ and then run t
 psql (9.6.3)
 Type "help" for help.
 
-postgres=# 
+postgres=#
 ```
 
-Create a new username and a password and then quit `psql`. After you quit, you will be brought back to your normal terminal. 
+Create a new username and a password and then quit `psql`. After you quit, you will be brought back to your normal terminal.
 
 ```bash
 postgres=# CREATE ROLE username WITH LOGIN PASSWORD 'password';
@@ -112,7 +112,7 @@ After you migrate your database schema, create a Django superuser. Superusers ha
 (venv) $ python manage.py createsuperuser
 ```
 
-As a final step, collect Snap Wagon's static files into the `static` directory. If you copied my directory structure, then the _settings_ file is already configured to point to the right location. Then, run your Django server. With the server running, you should be able to visit Snap Wagon in your browser at [http://localhost:8000](http://localhost:8000) and the Django _admin_ at [http://localhost:8000/admin/](http://localhost:8000/admin/). 
+As a final step, collect Snap Wagon's static files into the `static` directory. If you copied my directory structure, then the _settings_ file is already configured to point to the right location. Then, run your Django server. With the server running, you should be able to visit Snap Wagon in your browser at [http://localhost:8000](http://localhost:8000) and the Django _admin_ at [http://localhost:8000/admin/](http://localhost:8000/admin/).
 
 ```bash
 (venv) $ python manage.py collectstatic

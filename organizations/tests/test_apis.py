@@ -41,12 +41,12 @@ class OfferFactory(DjangoModelFactory):
 
     class Meta:
         model = Offer
-        
-        
+
+
 class OrganizationFactory(DjangoModelFactory):
     name = Sequence(lambda n: f'Organization {n}')
     desc = Sequence(lambda n: f'This is organization {n}.')
-    
+
     class Meta:
         model = Organization
 
@@ -119,7 +119,10 @@ class OrderTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.offer = Offer.objects.create(
-            title='Offer', value=decimal.Decimal('20.00'), discounted_value=decimal.Decimal('15.00'))
+            title='Offer',
+            value=decimal.Decimal('20.00'),
+            discounted_value=decimal.Decimal('15.00'),
+            organization = Organization.objects.create(name='ABC Inc.', desc='', stripe_organization_id='blah'))
 
     def create_order(self, offer_id, token='tok_visa'):
         return {
@@ -198,7 +201,10 @@ class OrderTest(APITestCase):
             amount=int(self.offer.discounted_value * 1 * 100),
             # 'customer': CustomerSerializer(Customer.objects.last()).data,
             currency='usd',
-            source='tok_visa'
+            source='tok_visa',
+            destination={
+                "account": self.offer.organization.stripe_organization_id,
+            }
         )
         vouchers = Voucher.objects.filter(customer__email='jason.a.parent@gmail.com', offer_id=self.offer.id)
         assert_equal(1, vouchers.count())
@@ -219,7 +225,10 @@ class OrderTest(APITestCase):
             amount=int(self.offer.discounted_value * 1 * 100),
             # 'customer': CustomerSerializer(Customer.objects.last()).data,
             currency='usd',
-            source='tok_chargeDeclined'
+            source='tok_chargeDeclined',
+            destination={
+                "account": self.offer.organization.stripe_organization_id,
+            }
         )
         vouchers = Voucher.objects.filter(customer__email='jason.a.parent@gmail.com', offer_id=self.offer.id)
         assert_equal(0, vouchers.count())
@@ -248,7 +257,7 @@ class OrderTest(APITestCase):
         assert_dict_equal(SparkPostSerializer(SubstitutionData(
             charge=mock_charge,
             customer_name='{} {}'.format(
-                order['customer']['first_name'], 
+                order['customer']['first_name'],
                 order['customer']['last_name']
             ),
             offer=Offer.objects.get(id=order['offer']['id']),
@@ -306,8 +315,8 @@ class CustomerTest(APITestCase):
         customer_serializer.is_valid(raise_exception=True)
         customer_serializer.create(customer_serializer.validated_data)
         assert_equal(1, Customer.objects.count())
-        
-        
+
+
 class OrganizationTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
