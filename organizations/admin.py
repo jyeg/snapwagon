@@ -44,9 +44,9 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    fields = ('id', 'name', 'desc',)
+    fields = ('id', 'name', 'desc', 'stripe_organization_id',)
     readonly_fields = ('id',)
-    list_display = ('id', 'name', 'desc',)
+    list_display = ('id', 'name', 'desc', 'stripe_organization_id',)
 
     class Media:
         js = ('/static/grappelli/tinymce/jscripts/tiny_mce/tiny_mce.js',

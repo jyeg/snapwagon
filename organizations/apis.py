@@ -73,7 +73,10 @@ class OrderView(views.APIView):
             charge = stripe.Charge.create(
                 amount=int(offer.discounted_value * int(order.quantity) * 100),
                 currency='usd',
-                source=charge_data.get('token')
+                source=charge_data.get('token'),
+                destination={
+                    "account": offer.organization.stripe_organization_id,
+                }
             )
         except CardError as error:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'detail': error.code})
@@ -106,8 +109,8 @@ class OrderView(views.APIView):
                     logger.error(exception.errors)
 
             return Response(data=OrderSerializer(order).data)
-        
-        
+
+
 class OrganizationView(generics.ListAPIView):
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
