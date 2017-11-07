@@ -1,12 +1,15 @@
-<!doctype html>
-
-<html lang="en-US">
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <title>Snap Wagon</title>
-</head>
-
-<body>
-  Snapwagon is a marketing and eCommerce saas platform that allows local businesses to easily run targeted marketing campaigns on their own website.  Local businesses need an easy way to drive revenue and impulse buys for (first time) visitors to their website. Coupon popups are a familiar user experience on the internet at this point and are a useful tool to quickly convert a potential customer. Our plugin allows clients to run flash sales on their site including signup and checkout without the pain or weight of a full featured eCommerce option. Local business clients will come to our platform and enter the specifics of the coupon(s) that they wish to run for the goods/services they offer. Our platform generates a plugin that the business client adds to their website. Once added any visitor to the business client’s website will be presented this offer with an option to purchase integrated into the coupon experience. This direct payment integration avoids the clunky user experience of unnecessary page redirections and allows business clients to collect attribution and conversion data on the performance of the sale. Snapwagon processes the payment and emails the customer a voucher that they may redeem in store. Then on a monthly basis, Snapwagon disburses funds for all sales to the business clients minus our service fee.       Business clients may also view our platform to analyze coupon performance, in terms of attribution and conversion, create email marketing campaigns and manage their accounts.
-</body>
+{% load render_bundle from webpack_loader %}
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Snap Wagon</title>
+  </head>
+  <body>
+    <div id="root">
+    </div>
+      {% render_bundle 'main' %}
+  </body>
 </html>

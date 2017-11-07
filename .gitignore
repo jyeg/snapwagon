@@ -89,3 +89,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# react webpack dev build
+webpack-stats.dev.json

@@ -21,6 +21,7 @@ DJANGO_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'webpack_loader',
 ]
 
 THIRD_PARTY_APPS = [
@@ -126,9 +127,17 @@ CORS_ORIGIN_ALLOW_ALL = True
 #         'DB': 0,
 #     }
 # }
+#
 
 SPARKPOST_API_KEY = os.getenv('SPARKPOST_API_KEY')
 
 STRIPE_API_KEY = os.getenv('STRIPE_API_KEY')
 
 EMAIL_BACKEND = 'sparkpost.django.email_backend.SparkPostEmailBackend'
+
+WEBPACK_LOADER = {
+    'DEFAULT': {
+            'BUNDLE_DIR_NAME': 'bundles/',
+            'STATS_FILE': os.path.join(BASE_DIR, 'webpack-stats.dev.json'),
+        }
+}
