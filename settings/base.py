@@ -21,7 +21,6 @@ DJANGO_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'webpack_loader',
 ]
 
 THIRD_PARTY_APPS = [
@@ -29,6 +28,7 @@ THIRD_PARTY_APPS = [
     # 'django_rq',
     'localflavor',
     'rest_framework',
+    'webpack_loader',
 ]
 
 LOCAL_APPS = [
