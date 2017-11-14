@@ -6,6 +6,7 @@ from unittest import skip
 from unittest.mock import (Mock, patch)
 
 # Django imports.
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -28,6 +29,8 @@ from ..serializers import (ChargeSerializer, CustomerSerializer, OfferSerializer
 from ..apis import SubstitutionData
 
 __author__ = 'Jason Parent'
+
+User = get_user_model()
 
 COUPON_CODE_PATTERN = re.compile(r'^\w{4}-\w{4}-\w{4}-\w{4}$')
 
@@ -320,8 +323,20 @@ class CustomerTest(APITestCase):
 class OrganizationTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(username='user', email='user@example.com', password='pAssw0rd!')
 
-    def test_user_can_list_offers(self):
+    def test_user_can_retrieve_organization(self):
+        organization = Organization.objects.create(name='Organization', desc='An organization.')
+        response = self.client.post(reverse('api:token_obtain_pair'), {
+            'username': self.user.username,
+            'password': 'pAssw0rd!'
+        })
+        token = response.data.get('access')
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = self.client.get(reverse('api:organization_detail', kwargs={'organization_id': organization.id}))
+        self.assertEqual(OrganizationSerializer(organization).data, response.data)
+
+    def test_user_can_list_organizations(self):
         organizations = OrganizationFactory.create_batch(5)
         response = self.client.get(reverse('api:organization_list'))
         assert_equal(200, response.status_code)

@@ -6,10 +6,12 @@ import logging
 
 # Django imports.
 # from django.conf import settings
+from django.contrib.auth.forms import UserCreationForm
 from django.utils import timezone
 
 # Third-party imports.
 from rest_framework import (generics, status, views, viewsets)
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 import sparkpost
 from sparkpost.exceptions import SparkPostAPIException
@@ -18,13 +20,24 @@ from stripe.error import CardError
 
 # Local imports.
 from .models import (Customer, Offer, Order, Organization, Voucher)
-from .serializers import (CustomerSerializer, OfferSerializer, OrderSerializer, OrganizationSerializer, SparkPostSerializer)
+from .serializers import (CustomerSerializer, OfferSerializer, OrderSerializer, OrganizationSerializer,
+                          SparkPostSerializer, UserSerializer)
 
 __author__ = 'Jason Parent'
 
 logger = logging.getLogger(__name__)
 
 SubstitutionData = collections.namedtuple('SubstitutionData', ['charge', 'customer_name', 'offer', 'organization', 'vouchers'])
+
+
+class SignUpView(views.APIView):
+    def post(self, *args, **kwargs):
+        form = UserCreationForm(data=self.request.data)
+        if form.is_valid():
+            user = form.save()
+            return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(form.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ClientToken(views.APIView):
@@ -112,5 +125,12 @@ class OrderView(views.APIView):
 
 
 class OrganizationView(generics.ListAPIView):
+    queryset = Organization.objects.all()
+    serializer_class = OrganizationSerializer
+
+
+class OrganizationDetailView(generics.RetrieveAPIView):
+    lookup_url_kwarg = 'organization_id'
+    permission_classes = (IsAuthenticated,)
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
