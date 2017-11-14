@@ -1,3 +1,6 @@
+# Django imports.
+from django.contrib.auth import get_user_model
+
 # Third-party imports.
 from rest_framework import serializers
 
@@ -5,6 +8,12 @@ from rest_framework import serializers
 from .models import (Customer, Offer, Order, Organization, Voucher)
 
 __author__ = 'Jason Parent'
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ('id', 'username',)
 
 
 class CustomerSerializer(serializers.ModelSerializer):
