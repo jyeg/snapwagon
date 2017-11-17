@@ -13,6 +13,8 @@ urlpatterns = [
     url(r'^admin/', include(admin.site.urls)),
     url(r'^api/', include('organizations.urls', namespace='api')),
     # url(r'^django-rq/', include('django_rq.urls')),
+    # match all other pages
+    url(r'^(?:.*)/?$', TemplateView.as_view(template_name='index.html'), name='index'),
 ]
 
 if settings.DEBUG:
