@@ -76,15 +76,12 @@ class OrderView(views.APIView):
                 customer = customer_serializer.create(customer_serializer.validated_data)
         offer_data = request.data.pop('offer')
         offer = Offer.objects.get(id=offer_data.get('id'))
-        request_data = request.data
-        request_data['customer_id'] = customer.id
-        request_data['offer_id'] = offer.id
-        order = Order.objects.create(**request_data)
+        order = Order.objects.create(customer=customer, offer=offer, quantity=int(request.data['quantity']))
 
         # Process charge.
         try:
             charge = stripe.Charge.create(
-                amount=int(offer.discounted_value * int(order.quantity) * 100),
+                amount=int(offer.discounted_value * order.quantity * 100),
                 currency='usd',
                 source=charge_data.get('token'),
                 destination={
